@@ -96,7 +96,7 @@ def create_gpx():
     create_gpx_samsung_health()
 
 def gpx_to_df(gpx_file_name):
-    with open(gpx_file_name, "r+") as gpx_file:
+    with open(f"gpx/{gpx_file_name}", "r+") as gpx_file:
         gpx = gpxpy.parse(gpx_file)
         points = gpx.tracks[0].segments[0].points
     lst = []
@@ -110,58 +110,60 @@ def gpx_to_df(gpx_file_name):
         lst.append(dct)
     return pd.DataFrame(lst)
 
-def plot_all(png_file_name, name="Bicycle Routes"):
-    fig, ax = plt.subplots()
-    a_mins = []
-    a_maxs = []
-    b_mins = []
-    b_maxs = []
+def plot_all():
+    _, ax = plt.subplots()
     for g in os.listdir("gpx"):
-        df = gpx_to_df(f"gpx/{g}")
+        df = gpx_to_df(g)
+        a, b = df["Longitude"], df["Latitude"]
+        ax.plot(a, b, lw=1, color="#0000ff")
+    ax.axis("square")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title("Bicycle Routes")
+    file_name = date_to_str(datetime.datetime.now()) + f"-all"
+    if not os.path.exists("plots"):
+        os.mkdir("plots")
+    plt.savefig(f"plots/{file_name}.png", dpi=600)
+
+def plot_gpx(gpx_file_name):
+    _, ax = plt.subplots()
+    df = gpx_to_df(gpx_file_name)
+    a, b = df["Longitude"], df["Latitude"]
+    ax.plot(a, b, lw=1, color="#0000ff")
+    ax.axis("square")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title("Bicycle Route")
+    file_name = date_to_str(datetime.datetime.now()) + f"-gpx={gpx_file_name.split('.')[0]}"
+    if not os.path.exists("plots"):
+        os.mkdir("plots")
+    plt.savefig(f"plots/{file_name}.png", dpi=600)
+
+def plot_condition(condition):
+    _, ax = plt.subplots()
+    for g in os.listdir("gpx"):
+        df = gpx_to_df(g)
+        if not condition(df):
+            continue
         a = df["Longitude"]
         b = df["Latitude"]
-        if a.min() > 30:
-            a_mins.append(a.min())
-            a_maxs.append(a.max())
-            b_mins.append(b.min())
-            b_maxs.append(b.max())
-            ax.plot(a, b, lw=1, color="#0000ff")
+        ax.plot(a, b, lw=1, color="#0000ff")
     ax.axis("square")
-    a_min = min(a_mins)
-    a_max = max(a_maxs)
-    b_min = min(b_mins)
-    b_max = max(b_maxs)
-    a_off = (a_max - a_min) * 0.1
-    b_off = (b_max - b_min) * 0.1
-    x_min, x_max = round(a_min - a_off, 2), round(a_max + a_off, 2)
-    y_min, y_max = round(b_min - b_off, 2), round(b_max + b_off, 2)
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(y_min, y_max)
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
-    ax.set_title(name)
-    print(x_min, x_max, y_min, y_max)
-    plt.savefig(f"{png_file_name}.png", dpi=600)
+    ax.set_title(f"Bicycle Routes - {condition.__name__}")
+    file_name = date_to_str(datetime.datetime.now()) + f"-condition={condition.__name__}"
+    if not os.path.exists("plots"):
+        os.mkdir("plots")
+    plt.savefig(f"plots/{file_name}.png", dpi=600)
 
-def plot(file_name, a, b, name="Bicycle Route", color="#0000FF"):
-    fig, ax = plt.subplots()
-    ax.plot(a, b, lw=1, color=color)
-    ax.axis("square")
-    a_min, a_max = a.min(), a.max()
-    b_min, b_max = b.min(), b.max()
-    a_off = (a_max - a_min) * 0.1
-    b_off = (b_max - b_min) * 0.1
-    ax.set_xlim(a_min - a_off, a_max + a_off)
-    ax.set_ylim(b_min - b_off, b_max + b_off)
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-    ax.set_title(name)
-    plt.savefig(f"{file_name}.png", dpi=600)
+def istanbul(df):
+    return df["Latitude"].min() > 40.0 and df["Longitude"].max() < 30.0
 
-
-def plot_gpx(gpx_file_name, png_file_name="test"):
-    df = gpx_to_df(gpx_file_name)
-    plot(png_file_name, df["Longitude"], df["Latitude"])
+def antalya(df):
+    return df["Latitude"].max() < 37.2 and df["Longitude"].min() > 30.0
 
 if __name__ == "__main__":
-    create_gpx()
+    plot_gpx("20220816_185420.gpx")
+    plot_all()
+    plot_condition(istanbul)
